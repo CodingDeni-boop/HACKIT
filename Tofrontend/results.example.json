@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "title": "Classic Wool-Blend Peacoat",
+    "price": 64.0,
+    "currency": "CHF",
+    "source": "eBay",
+    "sim": 0.91,
+    "swatch": "#1e3a5f",
+    "desc": "Pre-owned · Size M · Free shipping",
+    "url": "https://example.com/listing/1",
+    "secondHand": true
+  },
+  {
+    "id": 2,
+    "title": "Navy Double-Breasted Coat",
+    "price": 89.95,
+    "currency": "CHF",
+    "source": "Zalando",
+    "sim": 0.88,
+    "swatch": "#24426b",
+    "desc": "New · Sizes XS–XXL · 30-day return",
+    "url": "https://example.com/listing/2",
+    "secondHand": false
+  }
+]
