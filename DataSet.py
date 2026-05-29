@@ -1,16 +1,14 @@
-from vinted import Vinted
-import torch
+from wallapy import check_wallapop
 
+results = check_wallapop(
+    product_name="giacca di jeans",   # <-- il primo argomento è product_name, non keywords
+    max_price=40,
+    max_total_items=20,
+    deep_search=False,                # più veloce: per le immagini non serve
+)
 
-vinted = Vinted(domain = "com")
-
-if torch.backends.mps.is_available():
-    device = torch.device("mps")
-elif torch.cuda.is_available():
-    device = torch.device("cuda")
-else:
-    device = torch.device("cpu")
-    print("WARNING!!!   no gpu acceleration was found")
-
-print(f"running on: {device}")
-
+item = results[0]
+print(item["title"], item["price"], item["currency"])
+print(item["link"])              # link all'annuncio
+print(item["main_image"])        # URL della foto principale
+print(item["all_images"])        # tutte le foto
