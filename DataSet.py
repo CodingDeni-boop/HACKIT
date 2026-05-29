@@ -2,7 +2,7 @@ from vinted import Vinted
 import torch
 
 
-vinted = Vinted(domain = "com")
+vinted = Vinted(domain = "it")
 
 if torch.backends.mps.is_available():
     device = torch.device("mps")
@@ -14,3 +14,7 @@ else:
 
 print(f"running on: {device}")
 
+print("AAA")
+items = vinted.search(query = "aa")
+
+print(items)
