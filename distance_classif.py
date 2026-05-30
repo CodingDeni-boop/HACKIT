@@ -7,6 +7,9 @@ import requests
 from PIL import Image
 import io
 import json
+import torch
+from PIL import Image
+from transformers import AutoModelForCausalLM
 
 # Check APIFY_TOKEN
 APIFY_TOKEN = os.environ.get("APIFY_TOKEN")
@@ -26,9 +29,20 @@ if not APIFY_TOKEN:
 
 INPUT_FILE = "./data/input/input.jpg"
 COMPARISON_FOLDER = "./data/compare"
-QUERY = "black jeans"
 QUANTITY = 10
 RESULTS_FOLDER = "./toFrontend/results"
+
+model = AutoModelForCausalLM.from_pretrained(
+    "OrionLLM/GRM-OCR",
+    trust_remote_code=True,
+    torch_dtype=torch.bfloat16,
+    device_map="cpu",
+)
+
+image = Image.open(INPUT_FILE)
+query = model.generate(image)  # default category is "plain"
+print(f"was classified: {query}")
+
 
 # Create folders if they don't exist
 os.makedirs(COMPARISON_FOLDER, exist_ok=True)

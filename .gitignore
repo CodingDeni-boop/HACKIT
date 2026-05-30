@@ -24,5 +24,6 @@ __pycache__/
 venv/
 
 # App runtime artifacts
+data/input/
 Tobackend/input.jpg
 Tofrontend/results.json
