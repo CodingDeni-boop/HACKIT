@@ -28,6 +28,8 @@ export default function App() {
   const [cart, setCart] = useState([]);
   const [checkoutItems, setCheckoutItems] = useState([]);
   const [history, setHistory] = useState([]); // session-only search history
+  const [tryOnItem, setTryOnItem] = useState(null);
+  const [tryOnCache, setTryOnCache] = useState({}); // item.id -> generated data URL
 
   const goToResults = useCallback(async (file) => {
     if (!file || !file.type.startsWith("image/")) return;
@@ -67,15 +69,90 @@ export default function App() {
   const openHistory   = (entry) => { setImgUrl(entry.imgUrl); setResults(entry.results); setPage("results"); };
 
   const nav = { cartCount: cart.length, onCart: goToCart, historyCount: history.length, onHistory: goToHistory };
+  const tryOn = (item) => setTryOnItem(item);
 
   return (
     <div style={S.root}>
       <style>{KEYFRAMES}</style>
       {page === "upload"  && <UploadPage onFile={goToResults} loading={loading} imgUrl={imgUrl} {...nav} />}
-      {page === "results" && <ResultsPage results={results} imgUrl={imgUrl} onBack={backToUpload} onDetail={goToDetail} {...nav} />}
-      {page === "detail"  && <ItemDetailPage item={selectedItem} onBack={backToResults} onAddToCart={addToCart} onBuyNow={buyNow} inCart={cart.some((c) => c.id === selectedItem?.id)} {...nav} />}
+      {page === "results" && <ResultsPage results={results} imgUrl={imgUrl} onBack={backToUpload} onDetail={goToDetail} onTryOn={tryOn} {...nav} />}
+      {page === "detail"  && <ItemDetailPage item={selectedItem} onBack={backToResults} onAddToCart={addToCart} onBuyNow={buyNow} onTryOn={tryOn} inCart={cart.some((c) => c.id === selectedItem?.id)} {...nav} />}
       {page === "checkout" && <CheckoutPage items={checkoutItems} onBack={backToResults} onPaid={onPaid} onRemove={removeFromCart} />}
       {page === "history" && <HistoryPage history={history} onBack={backToUpload} onOpen={openHistory} {...nav} />}
+      {tryOnItem && (
+        <TryOnModal
+          item={tryOnItem}
+          cached={tryOnCache[tryOnItem.id]}
+          onCache={(img) => setTryOnCache((prev) => ({ ...prev, [tryOnItem.id]: img }))}
+          onClose={() => setTryOnItem(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Virtual try-on modal — calls the server, which calls OpenAI.
+// ──────────────────────────────────────────────────────────────
+function TryOnModal({ item, cached, onCache, onClose }) {
+  // If we've already generated this item's try-on, show it instantly — no
+  // second API call (and no extra cost).
+  const [status, setStatus] = useState(cached ? "done" : "loading");
+  const [resultImg, setResultImg] = useState(cached || null);
+  const [error, setError] = useState("");
+
+  React.useEffect(() => {
+    if (cached) return; // already have it — skip the fetch
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!item.imageDataUrl) throw new Error("This item has no image to try on.");
+        const res = await fetch(`${SERVER}/tryon`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: item.imageDataUrl, title: item.title }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Try-on failed");
+        if (!cancelled) { setResultImg(data.image); setStatus("done"); onCache(data.image); }
+      } catch (err) {
+        if (!cancelled) { setError(err.message); setStatus("error"); }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [item, cached]);
+
+  return (
+    <div style={S.modalOverlay} onClick={onClose}>
+      <div style={S.modalCard} onClick={(e) => e.stopPropagation()}>
+        <div style={S.modalHead}>
+          <span style={S.modalTitle}>👕 See it worn — {item.title}</span>
+          <button style={S.modalClose} onClick={onClose}>✕</button>
+        </div>
+
+        {status === "loading" && (
+          <div style={S.modalBody}>
+            <img src={item.imageDataUrl} alt={item.title} style={S.modalSrcThumb} />
+            <div style={S.loadingText}><span style={S.spinner} /> Generating a model wearing this…</div>
+            <p style={S.payNote}>This can take ~10–20 seconds.</p>
+          </div>
+        )}
+
+        {status === "done" && (
+          <div style={S.modalBody}>
+            <img src={resultImg} alt="try-on" style={S.modalResultImg} />
+            <p style={S.payNote}>✨ AI-generated preview — an interpretation, not the exact item.</p>
+          </div>
+        )}
+
+        {status === "error" && (
+          <div style={S.modalBody}>
+            <p style={{ ...S.detailDesc, color: "#e88" }}>⚠ {error}</p>
+            <p style={S.payNote}>Make sure the OpenAI key is set in openai_token.txt on the server.</p>
+            <button style={S.detailCta} onClick={onClose}>Close</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -162,7 +239,7 @@ function UploadPage({ onFile, loading, imgUrl, ...nav }) {
       </main>
 
       <footer style={S.footer}>
-        WearWise · Fighting fast fashion one swap at a time · SDG 12 · SDG 13 · SDG 8 &amp; 10
+        WearWise
       </footer>
     </>
   );
@@ -223,7 +300,7 @@ function ImpactPanel({ items }) {
   );
 }
 
-function ResultsPage({ results, imgUrl, onBack, onDetail, ...nav }) {
+function ResultsPage({ results, imgUrl, onBack, onDetail, onTryOn, ...nav }) {
   const [sortBy, setSortBy] = useState("price-asc");
 
   let shown = sortBy === "secondhand"
@@ -293,7 +370,12 @@ function ResultsPage({ results, imgUrl, onBack, onDetail, ...nav }) {
                 </div>
                 <h3 style={S.feedTitle}>{r.title}</h3>
                 <p style={S.feedDesc}>{r.desc}</p>
-                <button style={S.detailBtn} onClick={() => onDetail(r)}>View details →</button>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button style={S.detailBtn} onClick={() => onDetail(r)}>View details →</button>
+                  {r.imageDataUrl && (
+                    <button style={S.tryOnBtnSm} onClick={() => onTryOn(r)}>👕 See it worn</button>
+                  )}
+                </div>
               </div>
             </article>
           );
@@ -310,7 +392,7 @@ function ResultsPage({ results, imgUrl, onBack, onDetail, ...nav }) {
 // ──────────────────────────────────────────────────────────────
 // PAGE 3 — Item Detail
 // ──────────────────────────────────────────────────────────────
-function ItemDetailPage({ item, onBack, onAddToCart, onBuyNow, inCart, ...nav }) {
+function ItemDetailPage({ item, onBack, onAddToCart, onBuyNow, onTryOn, inCart, ...nav }) {
   if (!item) return null;
   const sc = SOURCE_COLORS[item.source] || { bg: "#2a5a46", text: "#fff" };
   const secondHand = isSecondHand(item);
@@ -387,6 +469,9 @@ function ItemDetailPage({ item, onBack, onAddToCart, onBuyNow, inCart, ...nav })
                 {inCart ? "✓ In cart" : "Add to cart"}
               </button>
               <button style={S.detailCta} onClick={() => onBuyNow(item)}>Buy now</button>
+              {item.imageDataUrl && (
+                <button style={S.tryOnBtn} onClick={() => onTryOn(item)}>👕 See it worn</button>
+              )}
             </div>
           </div>
         </div>
@@ -755,6 +840,19 @@ const S = {
   // cart button
   cartBtn:   { position: "relative", background: "transparent", border: `1px solid ${BORDER}`, borderRadius: 10, padding: "8px 12px", fontSize: 16, cursor: "pointer", lineHeight: 1 },
   cartBadge: { position: "absolute", top: -8, right: -8, background: ACCENT, color: ACCENT_DK, fontFamily: MONO, fontSize: 11, fontWeight: 700, minWidth: 18, height: 18, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" },
+
+  // try-on
+  tryOnBtn:   { background: "transparent", color: "#d9b3ff", border: `1px solid #6b4a8f`, borderRadius: 12, padding: "13px 24px", fontSize: 15, fontWeight: 700, fontFamily: FONT, cursor: "pointer" },
+  tryOnBtnSm: { background: "transparent", color: "#d9b3ff", border: `1px solid #6b4a8f`, borderRadius: 10, padding: "10px 14px", fontSize: 13, fontWeight: 700, fontFamily: FONT, cursor: "pointer" },
+
+  modalOverlay:   { position: "fixed", inset: 0, background: "rgba(6,16,11,.8)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20, animation: "fadeIn .2s ease" },
+  modalCard:      { background: BG_CARD, border: `1px solid ${BORDER}`, borderRadius: 20, width: "100%", maxWidth: 460, maxHeight: "90vh", overflow: "auto", animation: "rise .3s ease both" },
+  modalHead:      { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: `1px solid ${BORDER}` },
+  modalTitle:     { fontFamily: SERIF, fontSize: 16, fontWeight: 700, color: TEXT_PRI },
+  modalClose:     { background: "transparent", border: "none", color: TEXT_MUT, fontSize: 18, cursor: "pointer" },
+  modalBody:      { padding: 20, display: "flex", flexDirection: "column", alignItems: "center", gap: 14 },
+  modalSrcThumb:  { width: 120, height: 120, objectFit: "cover", borderRadius: 12, border: `1px solid ${BORDER}`, opacity: 0.7 },
+  modalResultImg: { width: "100%", borderRadius: 14, border: `1px solid ${BORDER}`, display: "block" },
 
   // history
   historyList:  { display: "flex", flexDirection: "column", gap: 12 },
