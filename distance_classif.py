@@ -4,11 +4,12 @@ import numpy as np
 import os
 import base64
 import pandas as pd
+from PIL import Image
+from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 import requests
 from PIL import Image
 import io
 import json
-from transformers import BlipProcessor, BlipForConditionalGeneration
 from co2_calculator import calculate_impact
 
 # Check APIFY_TOKEN
@@ -33,29 +34,27 @@ QUANTITY = 20
 RESULTS_FOLDER = "./toFrontend/results"
 
 # load image from the IAM database (actually this model is meant to be used on printed text)
+image = Image.open(INPUT_FILE)
+import torch
+from transformers import AutoModelForImageClassification, AutoImageProcessor
+from PIL import Image
 
 image = Image.open(INPUT_FILE)
 
-processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+model_name = "google/vit-base-patch16-224"
 
-image = Image.open(INPUT_FILE).convert("RGB")
+processor = AutoImageProcessor.from_pretrained(model_name)
+model = AutoModelForImageClassification.from_pretrained(model_name)
 
-# conditional image captioning
-text = "just say Jeans"
-inputs = processor(image, text, return_tensors="pt")
+with torch.no_grad():
+    inputs = processor(images=image, return_tensors="pt")
+    outputs = model(**inputs)
+    logits = outputs.logits
 
-out = model.generate(**inputs)
-print(processor.decode(out[0], skip_special_tokens=True))
-# >>> a photography of a woman and her dog
+predicted_class_id = logits.argmax(-1).item()
+query = model.config.id2label[predicted_class_id]
 
-# unconditional image captioning
-inputs = processor(image, return_tensors="pt")
-
-out = model.generate(**inputs)
-query = processor.decode(out[0], skip_special_tokens=True)
-print(f"query was: {query}")
-
+print("Prediction:", query)
 
 # Create folders if they don't exist
 os.makedirs(COMPARISON_FOLDER, exist_ok=True)
