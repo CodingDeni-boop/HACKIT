@@ -2,13 +2,12 @@ import torch
 from transformers import CLIPModel, CLIPProcessor
 import numpy as np
 import os
+import base64
 import pandas as pd
 import requests
 from PIL import Image
 import io
 import json
-import requests
-from PIL import Image
 from transformers import BlipProcessor, BlipForConditionalGeneration
 
 # Check APIFY_TOKEN
@@ -27,7 +26,7 @@ if not APIFY_TOKEN:
         print("  2. Create apify_token.txt with your token")
         exit(1)
 
-INPUT_FILE = "./data/input/jeans.webp"
+INPUT_FILE = "./data/input/input.jpg"
 COMPARISON_FOLDER = "./data/compare"
 QUANTITY = 100
 RESULTS_FOLDER = "./toFrontend/results"
@@ -190,6 +189,9 @@ for i, abs_index in enumerate(top_indices):
     except (IndexError, ValueError):
         pass
 
+    with open(result_path, "rb") as img_file:
+        img_b64 = base64.b64encode(img_file.read()).decode("utf-8")
+
     results_out.append({
         "id": i + 1,
         "title": listing.title if listing else basename,
@@ -201,7 +203,7 @@ for i, abs_index in enumerate(top_indices):
         "desc": "Second-hand",
         "url": listing.url if listing else "",
         "secondHand": True,
-        "image": f"/results/{i}.png",
+        "imageDataUrl": f"data:image/png;base64,{img_b64}",
     })
 
 results_json_path = os.path.join(os.path.dirname(RESULTS_FOLDER), "results.json")
