@@ -324,7 +324,56 @@ def render_image(query, listings, out_path):
     print(f"\nSaved -> {out_path}")
 
 
-if __name__ == "__main__":
+def search(query, per_site=12, sites=None, save_images_to_disk=True,
+           render_to=None, base_dir="images"):
+    """Run the full marketplace search pipeline and return the results.
+
+    This is the main library entry point. Import and call it from your own code.
+
+    Parameters
+    ----------
+    query : str
+        Search keyword, e.g. "vintage nike t-shirt".
+    per_site : int
+        Max listings to pull per marketplace (default 12).
+    sites : list[str] | None
+        Which marketplaces to scrape, e.g. ["Vinted", "Etsy"].
+        Defaults to DEFAULT_SITES (Vinted only). Must be keys of ACTORS.
+    save_images_to_disk : bool
+        If True, download every listing image into base_dir/<query>/<site>/
+        and write a prices.csv. (default True)
+    render_to : str | None
+        If set to a path (e.g. "comparison.png"), also render the comparison
+        image to that path. If None, no chart is produced. (default None)
+    base_dir : str
+        Root folder for saved images. (default "images")
+
+    Returns
+    -------
+    list[Listing]
+        Normalized listings (site, title, price, currency, url, image_url).
+        Also accessible as dicts via [l.__dict__ for l in results].
+
+    Raises
+    ------
+    SystemExit
+        If APIFY_TOKEN is not set in the environment.
+    """
+    if sites is None:
+        sites = DEFAULT_SITES
+    unknown = [s for s in sites if s not in ACTORS]
+    if unknown:
+        raise ValueError(f"Unknown site(s): {unknown}. Valid: {list(ACTORS)}")
+
+    listings = scrape_all(query, per_site, sites)
+    if save_images_to_disk:
+        save_images(query, listings, base_dir=base_dir)
+    if render_to:
+        render_image(query, listings, render_to)
+    return listings
+
+
+def _cli():
     ap = argparse.ArgumentParser()
     ap.add_argument("query", help="search keyword, e.g. 't-shirt'")
     ap.add_argument("--per-site", type=int, default=12, help="listings per marketplace")
@@ -336,7 +385,14 @@ if __name__ == "__main__":
                     help="skip downloading listing images into per-site folders")
     args = ap.parse_args()
 
-    listings = scrape_all(args.query, args.per_site, args.sites)
-    if not args.no_save_images:
-        save_images(args.query, listings)
-    render_image(args.query, listings, args.out)
+    search(
+        query=args.query,
+        per_site=args.per_site,
+        sites=args.sites,
+        save_images_to_disk=not args.no_save_images,
+        render_to=args.out,
+    )
+
+
+if __name__ == "__main__":
+    _cli()
