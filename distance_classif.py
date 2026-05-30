@@ -5,6 +5,7 @@ import pandas as pd
 import requests
 from PIL import Image
 import io
+import json
 
 # Check APIFY_TOKEN
 APIFY_TOKEN = os.environ.get("APIFY_TOKEN")
@@ -22,7 +23,7 @@ if not APIFY_TOKEN:
         print("  2. Create apify_token.txt with your token")
         exit(1)
 
-INPUT_FILE = "./data/input/jeans.webp"
+INPUT_FILE = "./data/input/input.jpg"
 COMPARISON_FOLDER = "./data/compare"
 QUERY = "black jeans"
 QUANTITY = 500
@@ -56,9 +57,10 @@ for f in os.listdir(RESULTS_FOLDER):
 # Fetch images from Vinted to populate comparison folder
 print("📥 Fetching images from Vinted...")
 
+listings = []
 try:
     from marketplace_scraper import scrape_all, fetch_thumb, parse_generic
-    
+
     # Search for QUERY on Vinted - fetch QUANTITY images
     listings = scrape_all(QUERY, per_site=200, sites=["Vinted"])
     
@@ -134,4 +136,34 @@ for i, abs_index in enumerate(top_indices):
     Image.open(image_path).save(result_path)
 
 print(f"\n✅ Results saved to {RESULTS_FOLDER}")
+
+# Write results.json so the Node server can return it to the frontend
+results_out = []
+for i, abs_index in enumerate(top_indices):
+    basename = os.path.basename(compare_path_list[abs_index])
+    listing = None
+    try:
+        idx = int(basename.split("_")[1])
+        listing = listings[idx] if idx < len(listings) else None
+    except (IndexError, ValueError):
+        pass
+
+    results_out.append({
+        "id": i + 1,
+        "title": listing.title if listing else basename,
+        "price": listing.price if listing else 0.0,
+        "currency": listing.currency if listing else "",
+        "source": listing.site if listing else "Vinted",
+        "sim": round(float(scores[abs_index]), 4),
+        "swatch": "#1a2030",
+        "desc": "Second-hand",
+        "url": listing.url if listing else "",
+        "secondHand": True,
+        "image": f"/results/{i}.png",
+    })
+
+results_json_path = os.path.join(os.path.dirname(RESULTS_FOLDER), "results.json")
+with open(results_json_path, "w", encoding="utf-8") as f:
+    json.dump(results_out, f, indent=2)
+print(f"✅ results.json written → {results_json_path}")
 

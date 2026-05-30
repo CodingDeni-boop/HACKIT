@@ -7,20 +7,20 @@ const path = require("path");
 const app = express();
 const PORT = 3001;
 
-const TOBACKEND = path.join(__dirname, "Tobackend");
+const DATA_INPUT = path.join(__dirname, "data", "input");
 const TOFRONTEND = path.join(__dirname, "Tofrontend");
 const RESULTS_FILE = path.join(TOFRONTEND, "results.json");
 
 // Ensure folders exist
-[TOBACKEND, TOFRONTEND].forEach((dir) => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+[DATA_INPUT, TOFRONTEND].forEach((dir) => {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
 app.use(cors());
 
-// Save uploaded image directly into Tobackend/
+// Save uploaded image directly into data/input/
 const storage = multer.diskStorage({
-  destination: TOBACKEND,
+  destination: DATA_INPUT,
   filename: (_req, _file, cb) => cb(null, "input.jpg"),
 });
 const upload = multer({ storage });
