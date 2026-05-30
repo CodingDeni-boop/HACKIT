@@ -24,6 +24,7 @@ export default function App() {
   const [imgUrl, setImgUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
+  const [selectedItem, setSelectedItem] = useState(null);
 
   const goToResults = useCallback(async (file) => {
     if (!file || !file.type.startsWith("image/")) return;
@@ -44,13 +45,16 @@ export default function App() {
     }
   }, []);
 
-  const backToUpload = () => { setPage("upload"); setImgUrl(null); setResults([]); };
+  const backToUpload   = () => { setPage("upload"); setImgUrl(null); setResults([]); };
+  const goToDetail     = (item) => { setSelectedItem(item); setPage("detail"); };
+  const backToResults  = () => { setSelectedItem(null); setPage("results"); };
 
   return (
     <div style={S.root}>
       <style>{KEYFRAMES}</style>
       {page === "upload"  && <UploadPage onFile={goToResults} loading={loading} imgUrl={imgUrl} />}
-      {page === "results" && <ResultsPage results={results} imgUrl={imgUrl} onBack={backToUpload} />}
+      {page === "results" && <ResultsPage results={results} imgUrl={imgUrl} onBack={backToUpload} onDetail={goToDetail} />}
+      {page === "detail"  && <ItemDetailPage item={selectedItem} onBack={backToResults} />}
     </div>
   );
 }
@@ -155,7 +159,7 @@ function co2Saved(item) {
   return (16.4).toFixed(1);
 }
 
-function ResultsPage({ results, imgUrl, onBack }) {
+function ResultsPage({ results, imgUrl, onBack, onDetail }) {
   const [sortBy, setSortBy] = useState("price-asc");
 
   let shown = sortBy === "secondhand"
@@ -233,11 +237,95 @@ function ResultsPage({ results, imgUrl, onBack }) {
                     🌱 ~{saved} kg CO₂ saved vs. buying new
                   </div>
                 )}
-                <button style={S.feedBtn}>View listing →</button>
+                <button style={S.detailBtn} onClick={() => onDetail(r)}>View details →</button>
               </div>
             </article>
           );
         })}
+      </main>
+
+      <footer style={S.footer}>
+        WearWise · Fighting fast fashion one swap at a time · SDG 12 · SDG 13 · SDG 8 &amp; 10
+      </footer>
+    </>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// PAGE 3 — Item Detail
+// ──────────────────────────────────────────────────────────────
+function ItemDetailPage({ item, onBack }) {
+  if (!item) return null;
+  const sc = SOURCE_COLORS[item.source] || { bg: "#2a5a46", text: "#fff" };
+  const saved = co2Saved(item);
+  const secondHand = isSecondHand(item);
+
+  const rows = [
+    { label: "Size",        value: item.size || "—",   desc: "as listed by the seller" },
+    { label: "Price",       value: `${item.currency} ${item.price?.toFixed(2)}`, desc: "converted to your local currency" },
+    { label: "Match score", value: `${Math.round((item.sim ?? 0.7) * 100)}%`,   desc: "visual similarity to your photo" },
+    { label: "Condition",   value: secondHand ? "Pre-owned / Second-hand" : "New", desc: secondHand ? "gently used, verified listing" : "brand new item" },
+    item.brand && { label: "Brand",   value: item.brand, desc: "original manufacturer" },
+    item.color && { label: "Color",   value: item.color, desc: "dominant color detected" },
+    item.url   && { label: "URL",     value: item.url, isLink: true, desc: "direct link to the listing" },
+  ].filter(Boolean);
+
+  return (
+    <>
+      <header style={S.resultsHeader}>
+        <button style={S.backBtn} onClick={onBack}>← Back to results</button>
+        <div style={S.logo}>
+          <span style={S.logoMark}>◎</span>
+          <span style={S.logoText}>Wear<span style={{ fontWeight: 300, fontStyle: "italic" }}>Wise</span></span>
+        </div>
+        <span style={{ ...S.sourceBadge, background: sc.bg, color: sc.text, fontSize: 12, padding: "6px 12px" }}>
+          {item.source}
+        </span>
+      </header>
+
+      <main style={S.detailMain}>
+        <div style={S.detailCard}>
+
+          <div style={S.detailImgWrap}>
+            {item.imageDataUrl ? (
+              <img src={item.imageDataUrl} alt={item.title} style={S.detailImg} />
+            ) : (
+              <div style={{ ...S.detailImg, background: `linear-gradient(135deg, ${item.swatch}cc, ${item.swatch}44)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontSize: 64, opacity: 0.4 }}>◎</span>
+              </div>
+            )}
+            <span style={S.detailSimBadge}>{Math.round((item.sim ?? 0.7) * 100)}% match</span>
+          </div>
+
+          <div style={S.detailInfo}>
+            <h1 style={S.detailTitle}>{item.title}</h1>
+            <p style={S.detailDesc}>{item.desc}</p>
+
+            {saved && (
+              <div style={{ ...S.co2Tag, fontSize: 13, padding: "8px 14px", marginBottom: 8 }}>
+                🌱 ~{saved} kg CO₂ saved vs. buying new
+              </div>
+            )}
+
+            <div style={S.detailTable}>
+              {rows.map(({ label, value, desc, isLink }) => (
+                <div key={label} style={S.detailRow}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <span style={S.detailRowLabel}>{label}</span>
+                    {desc && <span style={S.detailRowDesc}>{desc}</span>}
+                  </div>
+                  {isLink ? (
+                    <a href={value} target="_blank" rel="noopener noreferrer" style={S.detailRowLink}>{value}</a>
+                  ) : (
+                    <span style={S.detailRowValue}>{value}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <button style={S.detailCta}>Buy now</button>
+          </div>
+        </div>
       </main>
 
       <footer style={S.footer}>
@@ -342,5 +430,21 @@ const S = {
   feedTitle:  { fontSize: 18, fontWeight: 600, margin: 0, lineHeight: 1.3, color: TEXT_PRI },
   feedDesc:   { fontSize: 13, color: TEXT_SEC, margin: 0, lineHeight: 1.55, flex: 1 },
   co2Tag:     { fontSize: 12, color: ACCENT, background: "#122a1e", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "5px 10px", fontFamily: MONO, alignSelf: "flex-start" },
-  feedBtn:    { alignSelf: "flex-start", background: "transparent", color: TEXT_SEC, border: `1px solid ${BORDER}`, borderRadius: 10, padding: "10px 18px", fontSize: 13, cursor: "pointer", fontFamily: FONT },
+  detailBtn:  { alignSelf: "flex-start", background: ACCENT, color: ACCENT_DK, border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13, cursor: "pointer", fontFamily: FONT, fontWeight: 700, marginTop: 4 },
+
+  detailMain:     { flex: 1, maxWidth: 900, width: "100%", margin: "0 auto", padding: "40px 32px 60px" },
+  detailCard:     { display: "grid", gridTemplateColumns: "360px 1fr", gap: 40, background: BG_CARD, border: `1px solid ${BORDER}`, borderRadius: 24, overflow: "hidden", animation: "rise .4s ease both" },
+  detailImgWrap:  { position: "relative" },
+  detailImg:      { width: "100%", height: "100%", objectFit: "cover", display: "block", minHeight: 420 },
+  detailSimBadge: { position: "absolute", top: 16, left: 16, background: `${BG_DEEP}dd`, color: ACCENT, fontFamily: MONO, fontSize: 12, padding: "5px 11px", borderRadius: 9 },
+  detailInfo:     { padding: "36px 36px 36px 0", display: "flex", flexDirection: "column", gap: 16 },
+  detailTitle:    { fontSize: 26, fontWeight: 700, fontFamily: SERIF, color: TEXT_PRI, margin: 0, lineHeight: 1.25 },
+  detailDesc:     { fontSize: 14, color: TEXT_SEC, lineHeight: 1.65, margin: 0 },
+  detailTable:    { display: "flex", flexDirection: "column", gap: 0, borderRadius: 12, overflow: "hidden", border: `1px solid ${BORDER}` },
+  detailRow:      { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "11px 16px", borderBottom: `1px solid ${BORDER}`, gap: 16 },
+  detailRowLabel: { fontFamily: MONO, fontSize: 11, color: TEXT_MUT, letterSpacing: 0.5, flexShrink: 0 },
+  detailRowDesc:  { fontFamily: MONO, fontSize: 10, color: "#3a6a52", letterSpacing: 0.3 },
+  detailRowValue: { fontSize: 14, color: TEXT_PRI, textAlign: "right" },
+  detailRowLink:  { fontSize: 12, color: ACCENT, textAlign: "right", wordBreak: "break-all", textDecoration: "none" },
+  detailCta:      { marginTop: 8, background: ACCENT, color: ACCENT_DK, border: "none", borderRadius: 12, padding: "13px 32px", fontSize: 15, fontWeight: 700, fontFamily: FONT, cursor: "pointer", alignSelf: "flex-start" },
 };
