@@ -9,6 +9,7 @@ from PIL import Image
 import io
 import json
 from transformers import BlipProcessor, BlipForConditionalGeneration
+from co2_calculator import calculate_impact
 
 # Check APIFY_TOKEN
 APIFY_TOKEN = os.environ.get("APIFY_TOKEN")
@@ -41,7 +42,7 @@ model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-capt
 image = Image.open(INPUT_FILE).convert("RGB")
 
 # conditional image captioning
-text = "SHORT, only about clothes"
+text = "just say Jeans"
 inputs = processor(image, text, return_tensors="pt")
 
 out = model.generate(**inputs)
@@ -193,9 +194,12 @@ for i, abs_index in enumerate(top_indices):
     with open(result_path, "rb") as img_file:
         img_b64 = base64.b64encode(img_file.read()).decode("utf-8")
 
+    title = listing.title if listing else basename
+    impact = calculate_impact(title, caption=query)
+
     results_out.append({
         "id": i + 1,
-        "title": listing.title if listing else basename,
+        "title": title,
         "price": listing.price if listing else 0.0,
         "currency": listing.currency if listing else "",
         "source": listing.site if listing else "Vinted",
@@ -205,6 +209,10 @@ for i, abs_index in enumerate(top_indices):
         "url": listing.url if listing else "",
         "secondHand": True,
         "imageDataUrl": f"data:image/png;base64,{img_b64}",
+        "co2_saved_kg": impact["saved_co2_kg"],
+        "water_saved_l": impact["saved_water_l"],
+        "co2_category": impact["category"],
+        "co2_equivalents": impact["equivalents"],
     })
 
 results_json_path = os.path.join(os.path.dirname(RESULTS_FOLDER), "results.json")

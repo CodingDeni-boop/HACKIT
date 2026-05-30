@@ -154,9 +154,25 @@ const SORT_OPTIONS = [
   { key: "secondhand", label: "Second Hand" },
 ];
 
-function co2Saved(item) {
-  if (!isSecondHand(item)) return null;
-  return (16.4).toFixed(1);
+function ImpactPanel({ items }) {
+  const ref = items.find(r => isSecondHand(r) && r.co2_saved_kg);
+  if (!ref) return null;
+
+  const waterLabel = ref.water_saved_l >= 1000
+    ? `${(ref.water_saved_l / 1000).toFixed(1)}k L`
+    : `${ref.water_saved_l} L`;
+
+  return (
+    <div style={S.impactPanel}>
+      <span style={S.impactLeaf}>🌱</span>
+      <span style={S.impactHeadline}>Each pre-owned item saves</span>
+      <div style={S.impactChip}>
+        <span style={S.impactChipCo2}>~{ref.co2_saved_kg.toFixed(1)} kg CO₂</span>
+        {ref.water_saved_l > 0 && <span style={S.impactChipWater}>~{waterLabel} water</span>}
+      </div>
+      <span style={S.impactHeadline}>vs. buying new</span>
+    </div>
+  );
 }
 
 function ResultsPage({ results, imgUrl, onBack, onDetail }) {
@@ -171,8 +187,6 @@ function ResultsPage({ results, imgUrl, onBack, onDetail }) {
         return 0;
       });
 
-  const secondHandCount = shown.filter(isSecondHand).length;
-
   return (
     <>
       <header style={S.resultsHeader}>
@@ -184,15 +198,12 @@ function ResultsPage({ results, imgUrl, onBack, onDetail }) {
         {imgUrl && <img src={imgUrl} alt="query" style={S.queryThumb} />}
       </header>
 
+      <ImpactPanel items={shown} />
+
       <div style={S.resultsBar}>
         <div style={S.resultsCount}>
           <span style={S.countNum}>{shown.length}</span>
           <span style={S.countLabel}>matches</span>
-          {secondHandCount > 0 && (
-            <span style={S.co2Banner}>
-              ↓ {(secondHandCount * 16.4).toFixed(0)} kg CO₂ if you buy pre-owned
-            </span>
-          )}
         </div>
         <div style={S.sortPills}>
           {SORT_OPTIONS.map((opt) => (
@@ -210,7 +221,6 @@ function ResultsPage({ results, imgUrl, onBack, onDetail }) {
       <main style={S.feed}>
         {shown.map((r, i) => {
           const sc = SOURCE_COLORS[r.source] || { bg: "#2a5a46", text: "#fff" };
-          const saved = co2Saved(r);
           return (
             <article key={r.id} style={{ ...S.feedItem, animationDelay: `${i * 50}ms` }}>
               {r.imageDataUrl ? (
@@ -232,11 +242,6 @@ function ResultsPage({ results, imgUrl, onBack, onDetail }) {
                 </div>
                 <h3 style={S.feedTitle}>{r.title}</h3>
                 <p style={S.feedDesc}>{r.desc}</p>
-                {saved && (
-                  <div style={S.co2Tag}>
-                    🌱 ~{saved} kg CO₂ saved vs. buying new
-                  </div>
-                )}
                 <button style={S.detailBtn} onClick={() => onDetail(r)}>View details →</button>
               </div>
             </article>
@@ -257,7 +262,6 @@ function ResultsPage({ results, imgUrl, onBack, onDetail }) {
 function ItemDetailPage({ item, onBack }) {
   if (!item) return null;
   const sc = SOURCE_COLORS[item.source] || { bg: "#2a5a46", text: "#fff" };
-  const saved = co2Saved(item);
   const secondHand = isSecondHand(item);
 
   const rows = [
@@ -301,9 +305,11 @@ function ItemDetailPage({ item, onBack }) {
             <h1 style={S.detailTitle}>{item.title}</h1>
             <p style={S.detailDesc}>{item.desc}</p>
 
-            {saved && (
+            {secondHand && item.co2_saved_kg && (
               <div style={{ ...S.co2Tag, fontSize: 13, padding: "8px 14px", marginBottom: 8 }}>
-                🌱 ~{saved} kg CO₂ saved vs. buying new
+                🌱 ~{item.co2_saved_kg.toFixed(1)} kg CO₂ saved vs. buying new
+                {item.water_saved_l ? ` · ~${item.water_saved_l.toLocaleString()} L water` : ""}
+                {item.co2_equivalents?.km_not_driven ? ` · = ${item.co2_equivalents.km_not_driven} km not driven` : ""}
               </div>
             )}
 
@@ -408,13 +414,21 @@ const S = {
   statUnit:   { fontSize: 13, fontWeight: 400, color: TEXT_MUT },
   statLabel:  { fontSize: 11, color: TEXT_SEC, marginTop: 6, lineHeight: 1.4, fontFamily: MONO },
 
+  impactPanel:      { background: `linear-gradient(90deg, #0d2e1e 0%, #163d28 50%, #0d2e1e 100%)`, borderBottom: `1px solid ${ACCENT}44`, padding: "16px 32px", display: "flex", alignItems: "center", justifyContent: "center", gap: 16, flexWrap: "wrap", animation: "fadeIn .4s ease" },
+  impactLeft:       { display: "flex", alignItems: "center", gap: 10, flexShrink: 0, paddingTop: 6 },
+  impactLeaf:       { fontSize: 22 },
+  impactHeadline:   { fontFamily: MONO, fontSize: 12, color: TEXT_SEC, letterSpacing: 0.5 },
+  impactChip:       { display: "flex", alignItems: "center", gap: 8, background: "#122a1e", border: `1px solid ${BORDER}`, borderRadius: 10, padding: "6px 12px" },
+  impactChipTitle:  { fontFamily: FONT, fontSize: 12, color: TEXT_SEC },
+  impactChipCo2:    { fontFamily: MONO, fontSize: 13, fontWeight: 700, color: ACCENT },
+  impactChipWater:  { fontFamily: MONO, fontSize: 11, color: TEXT_MUT },
+
   resultsHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 32px", borderBottom: `1px solid ${BORDER}`, position: "sticky", top: 0, background: `${BG_MID}f0`, backdropFilter: "blur(12px)", zIndex: 10 },
   queryThumb:    { width: 44, height: 44, objectFit: "cover", borderRadius: 10, border: `2px solid ${ACCENT}` },
   resultsBar:    { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "24px 32px 16px", maxWidth: 760, margin: "0 auto", width: "100%", flexWrap: "wrap", gap: 12 },
   resultsCount:  { display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" },
   countNum:      { fontSize: 36, fontWeight: 700, color: ACCENT, fontFamily: SERIF },
   countLabel:    { fontFamily: MONO, fontSize: 12, color: TEXT_MUT, letterSpacing: 1 },
-  co2Banner:     { fontFamily: MONO, fontSize: 12, color: "#4ecba0", background: "#1a3d2b", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "4px 10px", marginLeft: 8 },
   sortPills:     { display: "flex", gap: 8, flexWrap: "wrap" },
   pill:          { background: "transparent", color: TEXT_SEC, border: `1px solid ${BORDER}`, borderRadius: 20, padding: "8px 16px", fontFamily: MONO, fontSize: 12, cursor: "pointer", transition: "all .15s" },
   pillActive:    { background: ACCENT, color: ACCENT_DK, border: `1px solid ${ACCENT}`, fontWeight: 700 },
