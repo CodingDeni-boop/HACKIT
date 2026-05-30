@@ -3,6 +3,7 @@ const multer = require("multer");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
+const { spawn } = require("child_process");
 
 const app = express();
 const PORT = 3001;
@@ -59,10 +60,19 @@ app.post("/analyze", upload.single("image"), async (req, res) => {
   if (fs.existsSync(RESULTS_FILE)) fs.unlinkSync(RESULTS_FILE);
 
   console.log(`[server] Image saved → ${req.file.path}`);
+  console.log("[server] Launching Python model…");
+
+  const py = spawn("python", ["distance_classif.py"], {
+    cwd: __dirname,
+    env: { ...process.env, PYTHONIOENCODING: "utf-8" },
+  });
+  py.stdout.on("data", (d) => console.log("[python]", d.toString().trim()));
+  py.stderr.on("data", (d) => console.error("[python]", d.toString().trim()));
+
   console.log("[server] Waiting for model to write Tofrontend/results.json…");
 
   try {
-    const results = await waitForResults(15000);
+    const results = await waitForResults(300000);
     console.log(`[server] Got ${results.length} results from model`);
     return res.json(results);
   } catch (err) {
