@@ -37,6 +37,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from apify_client import ApifyClient
 
+QUERY = "vintage nike t-shirt"
+PER_SITE = 12
+OUT_FILE = "comparison.png"
+SITES = ["Vinted"]
+APIFY_TOKEN = "apify_api_3SAfpraJNLwR3QA62i3NaE7mlVycOF0t2uxU"  # or None if using env
+token = APIFY_TOKEN
+
 # --- normalized record every parser produces -------------------------------
 
 @dataclass
@@ -325,18 +332,10 @@ def render_image(query, listings, out_path):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("query", help="search keyword, e.g. 't-shirt'")
-    ap.add_argument("--per-site", type=int, default=12, help="listings per marketplace")
-    ap.add_argument("--out", default="comparison.png")
-    ap.add_argument("--sites", nargs="+", default=DEFAULT_SITES,
-                    choices=list(ACTORS.keys()),
-                    help="which marketplaces to scrape (default: Vinted)")
-    ap.add_argument("--no-save-images", action="store_true",
-                    help="skip downloading listing images into per-site folders")
-    args = ap.parse_args()
+    listings = scrape_all(QUERY, PER_SITE, SITES)
 
-    listings = scrape_all(args.query, args.per_site, args.sites)
-    if not args.no_save_images:
-        save_images(args.query, listings)
-    render_image(args.query, listings, args.out)
+    if not listings:
+        raise RuntimeError("No listings found")
+
+    save_images(QUERY, listings)
+    render_image(QUERY, listings, OUT_FILE)
