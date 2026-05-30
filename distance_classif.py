@@ -2,9 +2,20 @@ from fastembed import ImageEmbedding
 import numpy as np
 import os
 import pandas as pd
+from marketplace_scraper import search
+
 
 INPUT_FILE = "./data/input/jeans.webp"
 COMPARISON_FOLDER = "./data/compare"
+QUERY = "jeans"
+
+results = search(
+    query=QUERY,
+    per_site=100,
+    sites=["Vinted"],
+    save_images_to_disk=True,
+    render_to=None,   # set to None to skip the chart
+)
 
 model = ImageEmbedding(model_name="Qdrant/clip-ViT-B-32-vision")
 

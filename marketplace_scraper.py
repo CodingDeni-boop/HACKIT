@@ -37,13 +37,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from apify_client import ApifyClient
 
-QUERY = "vintage nike t-shirt"
-PER_SITE = 12
-OUT_FILE = "comparison.png"
-SITES = ["Vinted"]
-APIFY_TOKEN = "apify_api_3SAfpraJNLwR3QA62i3NaE7mlVycOF0t2uxU"  # or None if using env
-token = APIFY_TOKEN
-
 # --- normalized record every parser produces -------------------------------
 
 @dataclass
