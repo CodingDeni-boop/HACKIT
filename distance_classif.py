@@ -1,4 +1,5 @@
-from fastembed import ImageEmbedding
+import torch
+from transformers import CLIPModel, CLIPProcessor
 import numpy as np
 import os
 import pandas as pd
@@ -119,8 +120,20 @@ print(f"\n✓ Found {len(os.listdir(COMPARISON_FOLDER))} images in comparison fo
 
 
 # Load embedding model
-print("🤖 Loading CLIP model...")
-model = ImageEmbedding(model_name="Qdrant/clip-ViT-B-32-vision")
+print("🤖 Loading FashionCLIP model...")
+_fclip = CLIPModel.from_pretrained("patrickjohncyh/fashion-clip")
+_proc  = CLIPProcessor.from_pretrained("patrickjohncyh/fashion-clip")
+_fclip.eval()
+
+def embed_images(paths, batch_size=32):
+    results = []
+    for i in range(0, len(paths), batch_size):
+        batch = [Image.open(p).convert("RGB") for p in paths[i:i+batch_size]]
+        inputs = _proc(images=batch, return_tensors="pt", padding=True)
+        with torch.no_grad():
+            feats = _fclip.get_image_features(**inputs)
+        results.append(feats.cpu().numpy())
+    return np.concatenate(results, axis=0)
 
 # Create or use input image
 if not os.path.exists(INPUT_FILE):
@@ -130,7 +143,7 @@ if not os.path.exists(INPUT_FILE):
     img.save(INPUT_FILE)
 
 print(f"🔍 Processing: {INPUT_FILE}")
-target_emb = np.array(list(model.embed([INPUT_FILE])))[0]
+target_emb = embed_images([INPUT_FILE])[0]
 
 VALID_EXT = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 
@@ -141,7 +154,7 @@ compare_path_list = [
 ]
 
 print(f"📊 Comparing against {len(compare_path_list)} images...")
-compare_emb = np.array(list(model.embed(compare_path_list, batch_size=128)))
+compare_emb = embed_images(compare_path_list, batch_size=32)
 
 # Normalize embeddings
 target_emb /= np.linalg.norm(target_emb)
