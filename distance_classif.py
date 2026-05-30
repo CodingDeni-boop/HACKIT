@@ -39,7 +39,7 @@ import torch
 from transformers import AutoModelForImageClassification, AutoImageProcessor
 from PIL import Image
 
-image = Image.open(INPUT_FILE)
+image = Image.open(INPUT_FILE).convert("RGB")
 
 model_name = "google/vit-base-patch16-224"
 

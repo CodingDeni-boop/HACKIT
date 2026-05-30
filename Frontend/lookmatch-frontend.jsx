@@ -25,10 +25,14 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [cart, setCart] = useState([]);
+  const [checkoutItems, setCheckoutItems] = useState([]);
+  const [history, setHistory] = useState([]); // session-only search history
 
   const goToResults = useCallback(async (file) => {
     if (!file || !file.type.startsWith("image/")) return;
-    setImgUrl(URL.createObjectURL(file));
+    const url = URL.createObjectURL(file);
+    setImgUrl(url);
     setLoading(true);
     const form = new FormData();
     form.append("image", file);
@@ -37,6 +41,10 @@ export default function App() {
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setResults(data);
+      setHistory((prev) => [
+        { id: Date.now(), imgUrl: url, results: data, at: new Date(), count: data.length },
+        ...prev,
+      ]);
       setPage("results");
     } catch (err) {
       alert(`Model error: ${err.message}`);
@@ -45,16 +53,29 @@ export default function App() {
     }
   }, []);
 
-  const backToUpload   = () => { setPage("upload"); setImgUrl(null); setResults([]); };
-  const goToDetail     = (item) => { setSelectedItem(item); setPage("detail"); };
-  const backToResults  = () => { setSelectedItem(null); setPage("results"); };
+  const addToCart = (item) =>
+    setCart((prev) => (prev.some((c) => c.id === item.id) ? prev : [...prev, item]));
+  const removeFromCart = (id) => setCart((prev) => prev.filter((c) => c.id !== id));
+
+  const backToUpload  = () => { setPage("upload"); setImgUrl(null); setResults([]); };
+  const goToDetail    = (item) => { setSelectedItem(item); setPage("detail"); };
+  const backToResults = () => { setSelectedItem(null); setPage("results"); };
+  const buyNow        = (item) => { setCheckoutItems([item]); setPage("checkout"); };
+  const goToCart      = () => { if (cart.length) { setCheckoutItems(cart); setPage("checkout"); } };
+  const onPaid        = () => { setCart([]); setCheckoutItems([]); };
+  const goToHistory   = () => setPage("history");
+  const openHistory   = (entry) => { setImgUrl(entry.imgUrl); setResults(entry.results); setPage("results"); };
+
+  const nav = { cartCount: cart.length, onCart: goToCart, historyCount: history.length, onHistory: goToHistory };
 
   return (
     <div style={S.root}>
       <style>{KEYFRAMES}</style>
-      {page === "upload"  && <UploadPage onFile={goToResults} loading={loading} imgUrl={imgUrl} />}
-      {page === "results" && <ResultsPage results={results} imgUrl={imgUrl} onBack={backToUpload} onDetail={goToDetail} />}
-      {page === "detail"  && <ItemDetailPage item={selectedItem} onBack={backToResults} />}
+      {page === "upload"  && <UploadPage onFile={goToResults} loading={loading} imgUrl={imgUrl} {...nav} />}
+      {page === "results" && <ResultsPage results={results} imgUrl={imgUrl} onBack={backToUpload} onDetail={goToDetail} {...nav} />}
+      {page === "detail"  && <ItemDetailPage item={selectedItem} onBack={backToResults} onAddToCart={addToCart} onBuyNow={buyNow} inCart={cart.some((c) => c.id === selectedItem?.id)} {...nav} />}
+      {page === "checkout" && <CheckoutPage items={checkoutItems} onBack={backToResults} onPaid={onPaid} onRemove={removeFromCart} />}
+      {page === "history" && <HistoryPage history={history} onBack={backToUpload} onOpen={openHistory} {...nav} />}
     </div>
   );
 }
@@ -69,7 +90,7 @@ const IMPACT_STATS = [
   { value: "99",   unit: "in 100",   label: "Swiss secondhand items never find a buyer" },
 ];
 
-function UploadPage({ onFile, loading, imgUrl }) {
+function UploadPage({ onFile, loading, imgUrl, ...nav }) {
   const [drag, setDrag] = useState(false);
   const fileRef = useRef(null);
 
@@ -80,7 +101,10 @@ function UploadPage({ onFile, loading, imgUrl }) {
           <span style={S.logoMark}>◎</span>
           <span style={S.logoText}>Wear<span style={{ fontWeight: 300, fontStyle: "italic" }}>Wise</span></span>
         </div>
-        <span style={S.tagline}>pre-owned · premium · planet-first</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <span style={S.tagline}>pre-owned · premium · planet-first</span>
+          <NavActions {...nav} />
+        </div>
       </header>
 
       <main style={S.uploadMain}>
@@ -154,6 +178,30 @@ const SORT_OPTIONS = [
   { key: "secondhand", label: "Second Hand" },
 ];
 
+function CartButton({ count, onClick }) {
+  return (
+    <button style={S.cartBtn} onClick={onClick} title="Cart">
+      🛒
+      {count > 0 && <span style={S.cartBadge}>{count}</span>}
+    </button>
+  );
+}
+
+// Cart + history buttons, shown in every header.
+function NavActions({ cartCount, onCart, historyCount, onHistory }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      {onHistory && (
+        <button style={S.cartBtn} onClick={onHistory} title="Search history">
+          🕑
+          {historyCount > 0 && <span style={S.cartBadge}>{historyCount}</span>}
+        </button>
+      )}
+      <CartButton count={cartCount} onClick={onCart} />
+    </div>
+  );
+}
+
 function ImpactPanel({ items }) {
   const ref = items.find(r => isSecondHand(r) && r.co2_saved_kg);
   if (!ref) return null;
@@ -175,7 +223,7 @@ function ImpactPanel({ items }) {
   );
 }
 
-function ResultsPage({ results, imgUrl, onBack, onDetail }) {
+function ResultsPage({ results, imgUrl, onBack, onDetail, ...nav }) {
   const [sortBy, setSortBy] = useState("price-asc");
 
   let shown = sortBy === "secondhand"
@@ -195,7 +243,10 @@ function ResultsPage({ results, imgUrl, onBack, onDetail }) {
           <span style={S.logoMark}>◎</span>
           <span style={S.logoText}>Wear<span style={{ fontWeight: 300, fontStyle: "italic" }}>Wise</span></span>
         </div>
-        {imgUrl && <img src={imgUrl} alt="query" style={S.queryThumb} />}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <NavActions {...nav} />
+          {imgUrl && <img src={imgUrl} alt="query" style={S.queryThumb} />}
+        </div>
       </header>
 
       <ImpactPanel items={shown} />
@@ -259,7 +310,7 @@ function ResultsPage({ results, imgUrl, onBack, onDetail }) {
 // ──────────────────────────────────────────────────────────────
 // PAGE 3 — Item Detail
 // ──────────────────────────────────────────────────────────────
-function ItemDetailPage({ item, onBack }) {
+function ItemDetailPage({ item, onBack, onAddToCart, onBuyNow, inCart, ...nav }) {
   if (!item) return null;
   const sc = SOURCE_COLORS[item.source] || { bg: "#2a5a46", text: "#fff" };
   const secondHand = isSecondHand(item);
@@ -282,9 +333,7 @@ function ItemDetailPage({ item, onBack }) {
           <span style={S.logoMark}>◎</span>
           <span style={S.logoText}>Wear<span style={{ fontWeight: 300, fontStyle: "italic" }}>Wise</span></span>
         </div>
-        <span style={{ ...S.sourceBadge, background: sc.bg, color: sc.text, fontSize: 12, padding: "6px 12px" }}>
-          {item.source}
-        </span>
+        <NavActions {...nav} />
       </header>
 
       <main style={S.detailMain}>
@@ -329,9 +378,247 @@ function ItemDetailPage({ item, onBack }) {
               ))}
             </div>
 
-            <button style={S.detailCta}>Buy now</button>
+            <div style={S.detailCtaRow}>
+              <button
+                style={{ ...S.addCartBtn, ...(inCart ? S.addCartBtnDone : {}) }}
+                onClick={() => onAddToCart(item)}
+                disabled={inCart}
+              >
+                {inCart ? "✓ In cart" : "Add to cart"}
+              </button>
+              <button style={S.detailCta} onClick={() => onBuyNow(item)}>Buy now</button>
+            </div>
           </div>
         </div>
+      </main>
+
+      <footer style={S.footer}>
+        WearWise · Fighting fast fashion one swap at a time · SDG 12 · SDG 13 · SDG 8 &amp; 10
+      </footer>
+    </>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// PAGE 4 — Checkout / Payment
+// ──────────────────────────────────────────────────────────────
+function CheckoutPage({ items, onBack, onPaid, onRemove }) {
+  const [form, setForm] = useState({
+    email: "", name: "", card: "", exp: "", cvc: "", address: "", zip: "", city: "",
+  });
+  const [status, setStatus] = useState("idle"); // idle | processing | done
+  const [errors, setErrors] = useState({});
+
+  const subtotal = items.reduce((s, it) => s + (it.price || 0), 0);
+  const shipping = items.length ? 4.9 : 0;
+  const total = subtotal + shipping;
+  const currency = items[0]?.currency || "CHF";
+
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  // light formatting helpers
+  const onCard = (e) => {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 16);
+    setForm((f) => ({ ...f, card: digits.replace(/(.{4})/g, "$1 ").trim() }));
+  };
+  const onExp = (e) => {
+    const d = e.target.value.replace(/\D/g, "").slice(0, 4);
+    setForm((f) => ({ ...f, exp: d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d }));
+  };
+  const onCvc = (e) =>
+    setForm((f) => ({ ...f, cvc: e.target.value.replace(/\D/g, "").slice(0, 4) }));
+
+  const validate = () => {
+    const er = {};
+    if (!/^\S+@\S+\.\S+$/.test(form.email)) er.email = "Enter a valid email";
+    if (form.name.trim().length < 2) er.name = "Enter the cardholder name";
+    if (form.card.replace(/\s/g, "").length < 13) er.card = "Enter a valid card number";
+    if (!/^\d{2}\/\d{2}$/.test(form.exp)) er.exp = "MM/YY";
+    if (form.cvc.length < 3) er.cvc = "CVC";
+    if (form.address.trim().length < 3) er.address = "Enter your address";
+    if (form.zip.trim().length < 3) er.zip = "ZIP";
+    if (form.city.trim().length < 2) er.city = "City";
+    setErrors(er);
+    return Object.keys(er).length === 0;
+  };
+
+  const pay = (e) => {
+    e.preventDefault();
+    if (status === "processing") return;
+    if (!validate()) return;
+    setStatus("processing");
+    // Simulated payment — no real charge. Swap for a Stripe/PSP call later.
+    setTimeout(() => { setStatus("done"); onPaid(); }, 1800);
+  };
+
+  if (status === "done") {
+    return (
+      <>
+        <header style={S.resultsHeader}>
+          <div style={S.logo}>
+            <span style={S.logoMark}>◎</span>
+            <span style={S.logoText}>Wear<span style={{ fontWeight: 300, fontStyle: "italic" }}>Wise</span></span>
+          </div>
+          <span />
+        </header>
+        <main style={{ ...S.detailMain, maxWidth: 520, textAlign: "center" }}>
+          <div style={S.successCard}>
+            <div style={S.successMark}>✓</div>
+            <h1 style={S.detailTitle}>Order confirmed</h1>
+            <p style={S.detailDesc}>
+              Thanks{form.name ? `, ${form.name.split(" ")[0]}` : ""}! A receipt is on its
+              way to {form.email || "your email"}. You just chose pre-owned over new. 🌱
+            </p>
+            <div style={S.successTotal}>{currency} {total.toFixed(2)} paid</div>
+            <button style={S.detailCta} onClick={onBack}>← Back to results</button>
+          </div>
+        </main>
+        <footer style={S.footer}>
+          WearWise · Fighting fast fashion one swap at a time · SDG 12 · SDG 13 · SDG 8 &amp; 10
+        </footer>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <header style={S.resultsHeader}>
+        <button style={S.backBtn} onClick={onBack}>← Back</button>
+        <div style={S.logo}>
+          <span style={S.logoMark}>◎</span>
+          <span style={S.logoText}>Wear<span style={{ fontWeight: 300, fontStyle: "italic" }}>Wise</span></span>
+        </div>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: TEXT_MUT }}>🔒 Secure checkout</span>
+      </header>
+
+      <main style={S.checkoutMain}>
+        {/* Order summary */}
+        <section style={S.checkoutSummary}>
+          <h2 style={S.checkoutH2}>Your order</h2>
+          {items.map((it) => (
+            <div key={it.id} style={S.summaryRow}>
+              {it.imageDataUrl
+                ? <img src={it.imageDataUrl} alt={it.title} style={S.summaryThumb} />
+                : <div style={{ ...S.summaryThumb, background: `linear-gradient(135deg, ${it.swatch}cc, ${it.swatch}44)` }} />}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={S.summaryTitle}>{it.title}</div>
+                <div style={S.summarySub}>{it.source} · {isSecondHand(it) ? "Pre-owned" : "New"}</div>
+              </div>
+              <div style={S.summaryPrice}>{it.currency} {(it.price || 0).toFixed(2)}</div>
+              {onRemove && items.length > 1 && (
+                <button style={S.summaryRemove} onClick={() => onRemove(it.id)} title="Remove">✕</button>
+              )}
+            </div>
+          ))}
+          <div style={S.summaryDivider} />
+          <div style={S.summaryLine}><span>Subtotal</span><span>{currency} {subtotal.toFixed(2)}</span></div>
+          <div style={S.summaryLine}><span>Shipping</span><span>{currency} {shipping.toFixed(2)}</span></div>
+          <div style={{ ...S.summaryLine, ...S.summaryTotalLine }}>
+            <span>Total</span><span>{currency} {total.toFixed(2)}</span>
+          </div>
+        </section>
+
+        {/* Payment form */}
+        <form style={S.checkoutForm} onSubmit={pay}>
+          <h2 style={S.checkoutH2}>Payment details</h2>
+
+          <Field label="Email" error={errors.email}>
+            <input style={S.input} type="email" placeholder="you@email.com" value={form.email} onChange={set("email")} />
+          </Field>
+          <Field label="Cardholder name" error={errors.name}>
+            <input style={S.input} placeholder="Jane Doe" value={form.name} onChange={set("name")} />
+          </Field>
+          <Field label="Card number" error={errors.card}>
+            <input style={S.input} placeholder="1234 5678 9012 3456" inputMode="numeric" value={form.card} onChange={onCard} />
+          </Field>
+          <div style={S.inputRow}>
+            <Field label="Expiry" error={errors.exp} style={{ flex: 1 }}>
+              <input style={S.input} placeholder="MM/YY" inputMode="numeric" value={form.exp} onChange={onExp} />
+            </Field>
+            <Field label="CVC" error={errors.cvc} style={{ flex: 1 }}>
+              <input style={S.input} placeholder="123" inputMode="numeric" value={form.cvc} onChange={onCvc} />
+            </Field>
+          </div>
+          <Field label="Address" error={errors.address}>
+            <input style={S.input} placeholder="Street and number" value={form.address} onChange={set("address")} />
+          </Field>
+          <div style={S.inputRow}>
+            <Field label="ZIP" error={errors.zip} style={{ flex: 1 }}>
+              <input style={S.input} placeholder="8000" value={form.zip} onChange={set("zip")} />
+            </Field>
+            <Field label="City" error={errors.city} style={{ flex: 2 }}>
+              <input style={S.input} placeholder="Zürich" value={form.city} onChange={set("city")} />
+            </Field>
+          </div>
+
+          <button type="submit" style={{ ...S.payBtn, ...(status === "processing" ? S.payBtnBusy : {}) }} disabled={status === "processing"}>
+            {status === "processing"
+              ? <><span style={S.spinner} /> Processing…</>
+              : `Pay ${currency} ${total.toFixed(2)}`}
+          </button>
+          <p style={S.payNote}>🔒 This is a demo checkout — no real payment is processed.</p>
+        </form>
+      </main>
+
+      <footer style={S.footer}>
+        WearWise · Fighting fast fashion one swap at a time · SDG 12 · SDG 13 · SDG 8 &amp; 10
+      </footer>
+    </>
+  );
+}
+
+function Field({ label, error, children, style }) {
+  return (
+    <label style={{ ...S.field, ...style }}>
+      <span style={S.fieldLabel}>{label}</span>
+      {children}
+      {error && <span style={S.fieldError}>{error}</span>}
+    </label>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// PAGE 5 — Search history (session-only)
+// ──────────────────────────────────────────────────────────────
+function HistoryPage({ history, onBack, onOpen, ...nav }) {
+  const fmtTime = (d) => {
+    const dt = d instanceof Date ? d : new Date(d);
+    return dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  return (
+    <>
+      <header style={S.resultsHeader}>
+        <button style={S.backBtn} onClick={onBack}>← New search</button>
+        <div style={S.logo}>
+          <span style={S.logoMark}>◎</span>
+          <span style={S.logoText}>Wear<span style={{ fontWeight: 300, fontStyle: "italic" }}>Wise</span></span>
+        </div>
+        <NavActions {...nav} />
+      </header>
+
+      <main style={S.detailMain}>
+        <h1 style={{ ...S.detailTitle, marginBottom: 20 }}>Search history</h1>
+
+        {history.length === 0 ? (
+          <p style={S.detailDesc}>
+            No searches yet this session. Upload a photo and your past searches
+            will appear here so you can revisit them.
+          </p>
+        ) : (
+          <div style={S.historyList}>
+            {history.map((h) => (
+              <button key={h.id} style={S.historyRow} onClick={() => onOpen(h)}>
+                <img src={h.imgUrl} alt="search" style={S.historyThumb} />
+                <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                  <div style={S.historyTitle}>{h.count} matches found</div>
+                  <div style={S.historySub}>searched at {fmtTime(h.at)}</div>
+                </div>
+                <span style={S.historyOpen}>View →</span>
+              </button>
+            ))}
+          </div>
+        )}
       </main>
 
       <footer style={S.footer}>
@@ -460,5 +747,48 @@ const S = {
   detailRowDesc:  { fontFamily: MONO, fontSize: 10, color: "#3a6a52", letterSpacing: 0.3 },
   detailRowValue: { fontSize: 14, color: TEXT_PRI, textAlign: "right" },
   detailRowLink:  { fontSize: 12, color: ACCENT, textAlign: "right", wordBreak: "break-all", textDecoration: "none" },
-  detailCta:      { marginTop: 8, background: ACCENT, color: ACCENT_DK, border: "none", borderRadius: 12, padding: "13px 32px", fontSize: 15, fontWeight: 700, fontFamily: FONT, cursor: "pointer", alignSelf: "flex-start" },
+  detailCtaRow:   { marginTop: 8, display: "flex", gap: 12, flexWrap: "wrap" },
+  detailCta:      { background: ACCENT, color: ACCENT_DK, border: "none", borderRadius: 12, padding: "13px 32px", fontSize: 15, fontWeight: 700, fontFamily: FONT, cursor: "pointer" },
+  addCartBtn:     { background: "transparent", color: TEXT_PRI, border: `1px solid ${ACCENT}`, borderRadius: 12, padding: "13px 28px", fontSize: 15, fontWeight: 700, fontFamily: FONT, cursor: "pointer" },
+  addCartBtnDone: { color: ACCENT, borderColor: BORDER, cursor: "default", background: "#122a1e" },
+
+  // cart button
+  cartBtn:   { position: "relative", background: "transparent", border: `1px solid ${BORDER}`, borderRadius: 10, padding: "8px 12px", fontSize: 16, cursor: "pointer", lineHeight: 1 },
+  cartBadge: { position: "absolute", top: -8, right: -8, background: ACCENT, color: ACCENT_DK, fontFamily: MONO, fontSize: 11, fontWeight: 700, minWidth: 18, height: 18, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" },
+
+  // history
+  historyList:  { display: "flex", flexDirection: "column", gap: 12 },
+  historyRow:   { display: "flex", alignItems: "center", gap: 16, background: BG_CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 14, cursor: "pointer", animation: "rise .4s ease both", width: "100%" },
+  historyThumb: { width: 64, height: 64, borderRadius: 12, objectFit: "cover", flexShrink: 0, border: `1px solid ${BORDER}` },
+  historyTitle: { fontSize: 16, fontWeight: 600, color: TEXT_PRI, fontFamily: SERIF },
+  historySub:   { fontFamily: MONO, fontSize: 12, color: TEXT_MUT, marginTop: 4 },
+  historyOpen:  { fontFamily: MONO, fontSize: 13, color: ACCENT, flexShrink: 0 },
+
+  // checkout
+  checkoutMain:    { flex: 1, maxWidth: 980, width: "100%", margin: "0 auto", padding: "40px 32px 60px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, alignItems: "start" },
+  checkoutH2:      { fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: TEXT_PRI, margin: "0 0 18px" },
+  checkoutSummary: { background: BG_CARD, border: `1px solid ${BORDER}`, borderRadius: 20, padding: 24, animation: "rise .4s ease both" },
+  summaryRow:      { display: "flex", alignItems: "center", gap: 14, padding: "10px 0" },
+  summaryThumb:    { width: 56, height: 56, borderRadius: 10, objectFit: "cover", flexShrink: 0, border: `1px solid ${BORDER}` },
+  summaryTitle:    { fontSize: 14, fontWeight: 600, color: TEXT_PRI, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  summarySub:      { fontFamily: MONO, fontSize: 11, color: TEXT_MUT, marginTop: 3 },
+  summaryPrice:    { fontFamily: SERIF, fontSize: 16, fontWeight: 700, color: ACCENT, flexShrink: 0 },
+  summaryRemove:   { background: "transparent", border: "none", color: TEXT_MUT, cursor: "pointer", fontSize: 14, flexShrink: 0 },
+  summaryDivider:  { height: 1, background: BORDER, margin: "14px 0" },
+  summaryLine:     { display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 13, color: TEXT_SEC, padding: "5px 0" },
+  summaryTotalLine:{ fontFamily: SERIF, fontSize: 18, fontWeight: 700, color: TEXT_PRI, borderTop: `1px solid ${BORDER}`, marginTop: 8, paddingTop: 14 },
+
+  checkoutForm: { background: BG_CARD, border: `1px solid ${BORDER}`, borderRadius: 20, padding: 24, display: "flex", flexDirection: "column", gap: 14, animation: "rise .4s ease both" },
+  field:        { display: "flex", flexDirection: "column", gap: 6 },
+  fieldLabel:   { fontFamily: MONO, fontSize: 11, color: TEXT_MUT, letterSpacing: 0.5 },
+  fieldError:   { fontFamily: MONO, fontSize: 11, color: "#e88" },
+  input:        { background: BG_DEEP, border: `1px solid ${BORDER}`, borderRadius: 10, padding: "11px 13px", fontSize: 14, color: TEXT_PRI, outline: "none", width: "100%" },
+  inputRow:     { display: "flex", gap: 12 },
+  payBtn:       { marginTop: 6, background: ACCENT, color: ACCENT_DK, border: "none", borderRadius: 12, padding: "14px 24px", fontSize: 15, fontWeight: 700, fontFamily: FONT, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 },
+  payBtnBusy:   { opacity: 0.7, cursor: "default" },
+  payNote:      { fontFamily: MONO, fontSize: 11, color: TEXT_MUT, textAlign: "center", margin: 0 },
+
+  successCard:  { background: BG_CARD, border: `1px solid ${BORDER}`, borderRadius: 24, padding: "48px 36px", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, animation: "rise .4s ease both" },
+  successMark:  { width: 64, height: 64, borderRadius: "50%", background: ACCENT, color: ACCENT_DK, fontSize: 34, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" },
+  successTotal: { fontFamily: SERIF, fontSize: 22, fontWeight: 700, color: ACCENT },
 };
