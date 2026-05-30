@@ -157,7 +157,7 @@ for i, abs_index in enumerate(top_indices):
     basename = os.path.basename(compare_path_list[abs_index])
     listing = None
     try:
-        idx = int(os.path.splitext(basename[0]).split("_")[1])
+        idx = int(basename.split("_")[1].split(".")[0])
         listing = listings[idx] if idx < len(listings) else None
     except (IndexError, ValueError):
         pass
