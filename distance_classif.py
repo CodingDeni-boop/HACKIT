@@ -28,7 +28,7 @@ if not APIFY_TOKEN:
 
 INPUT_FILE = "./data/input/input.jpg"
 COMPARISON_FOLDER = "./data/compare"
-QUANTITY = 100
+QUANTITY = 20
 RESULTS_FOLDER = "./toFrontend/results"
 
 # load image from the IAM database (actually this model is meant to be used on printed text)
@@ -163,7 +163,7 @@ compare_emb /= np.linalg.norm(compare_emb, axis=1, keepdims=True)
 scores = compare_emb @ target_emb
 
 # Get top 5 results
-top_k = 5
+top_k = 20
 top_indices = np.argsort(scores)[-top_k:][::-1]
 
 print(f"\n🏆 Top {top_k} Similar Results:")
@@ -189,6 +189,7 @@ for i, abs_index in enumerate(top_indices):
     except (IndexError, ValueError):
         pass
 
+    result_path = os.path.join(RESULTS_FOLDER, f"{i}.png")
     with open(result_path, "rb") as img_file:
         img_b64 = base64.b64encode(img_file.read()).decode("utf-8")
 
