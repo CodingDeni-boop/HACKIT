@@ -29,7 +29,7 @@ if not APIFY_TOKEN:
 
 INPUT_FILE = "./data/input/jeans.webp"
 COMPARISON_FOLDER = "./data/compare"
-QUANTITY = 10
+QUANTITY = 100
 RESULTS_FOLDER = "./toFrontend/results"
 
 # load image from the IAM database (actually this model is meant to be used on printed text)
@@ -132,7 +132,7 @@ def embed_images(paths, batch_size=32):
         inputs = _proc(images=batch, return_tensors="pt", padding=True)
         with torch.no_grad():
             feats = _fclip.get_image_features(**inputs)
-        results.append(feats.cpu().numpy())
+        results.append(feats.pooler_output.cpu().numpy())
     return np.concatenate(results, axis=0)
 
 # Create or use input image
