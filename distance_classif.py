@@ -29,7 +29,7 @@ if not APIFY_TOKEN:
 
 INPUT_FILE = "./data/input/input.jpg"
 COMPARISON_FOLDER = "./data/compare"
-QUANTITY = 100
+QUANTITY = 10
 RESULTS_FOLDER = "./toFrontend/results"
 
 # load image from the IAM database (actually this model is meant to be used on printed text)
@@ -42,7 +42,7 @@ model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-capt
 image = Image.open(INPUT_FILE).convert("RGB")
 
 # conditional image captioning
-text = ""
+text = "SHORT, only about clothes"
 inputs = processor(image, text, return_tensors="pt")
 
 out = model.generate(**inputs)

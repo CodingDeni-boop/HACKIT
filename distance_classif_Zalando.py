@@ -27,10 +27,10 @@ if not APIFY_TOKEN:
         print("  2. Create apify_token.txt with your token")
         exit(1)
 
-INPUT_FILE = "./data/input/jeans.webp"
-COMPARISON_FOLDER = "./data/compare"
-QUANTITY = 100
-RESULTS_FOLDER = "./toFrontend/results"
+INPUT_FILE = "./data/input/input.jpg"
+COMPARISON_FOLDER = "./data/compare_zalando"
+QUANTITY = 10
+RESULTS_FOLDER = "./toFrontend/results_zalando"
 
 # load image from the IAM database (actually this model is meant to be used on printed text)
 
@@ -42,7 +42,7 @@ model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-capt
 image = Image.open(INPUT_FILE).convert("RGB")
 
 # conditional image captioning
-text = ""
+text = "SHORT, only clothing nothing else."
 inputs = processor(image, text, return_tensors="pt")
 
 out = model.generate(**inputs)
@@ -81,16 +81,79 @@ for f in os.listdir(RESULTS_FOLDER):
             os.remove(file_path)
     except Exception as e:
         print(f"⚠ Could not delete {f}: {e}")
+from playwright.sync_api import sync_playwright
+from urllib.parse import quote
+import time
 
-# Fetch images from Vinted to populate comparison folder
-print("📥 Fetching images from Vinted...")
+class ZalandoListing:
+    def __init__(self, title, price, currency, image_url, url):
+        self.title = title
+        self.price = price
+        self.currency = currency
+        self.image_url = image_url
+        self.url = url
+        self.site = "Zalando"
+
+
+def scrape_aboutyou(query, limit=50):
+    print("📥 Scraping ABOUT YOU...")
+
+    listings = []
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+
+        url = f"https://www.aboutyou.com/search?q={quote(query)}"
+        page.goto(url, timeout=60000)
+
+        page.wait_for_timeout(5000)
+
+        # scroll to load products
+        for _ in range(4):
+            page.mouse.wheel(0, 2000)
+            page.wait_for_timeout(1500)
+
+        cards = page.query_selector_all("article, div[data-test-id='product-card']")
+
+        for card in cards[:limit]:
+            try:
+                img = card.query_selector("img")
+                link = card.query_selector("a")
+
+                title_el = card.query_selector("h3, h2")
+
+                image_url = img.get_attribute("src") if img else None
+                title = title_el.inner_text().strip() if title_el else "No title"
+
+                href = link.get_attribute("href") if link else ""
+                url_full = "https://www.aboutyou.com" + href if href else ""
+
+                text = card.inner_text()
+                price = 0.0
+                match = re.search(r"(\d+[\.,]\d+)", text)
+                if match:
+                    price = float(match.group(1).replace(",", "."))
+
+                if image_url:
+                    listings.append(
+                        Listing(title, price, "EUR", image_url, url_full, "ABOUT YOU")
+                    )
+
+            except:
+                continue
+
+        browser.close()
+
+    print(f"✓ ABOUT YOU: {len(listings)} items")
+    return listings
 
 listings = []
 try:
     from marketplace_scraper import scrape_all, fetch_thumb, parse_generic
 
     # Search for QUERY on Vinted - fetch QUANTITY images
-    listings = scrape_all(query, per_site=QUANTITY, sites=["Zalando"])
+    listings = scra(query, limit = QUANTITY)
     
     # Download images to comparison folder
     for idx, listing in enumerate(listings):
@@ -195,16 +258,16 @@ for i, abs_index in enumerate(top_indices):
         "title": listing.title if listing else basename,
         "price": listing.price if listing else 0.0,
         "currency": listing.currency if listing else "",
-        "source": listing.site if listing else "Vinted",
+        "source": listing.site if listing else "Zalando",
         "sim": round(float(scores[abs_index]), 4),
         "swatch": "#1a2030",
         "desc": "Second-hand",
         "url": listing.url if listing else "",
         "secondHand": True,
-        "image": f"/results/{i}.png",
+        "image": f"/results_zalando/{i}.png",
     })
 
-results_json_path = os.path.join(os.path.dirname(RESULTS_FOLDER), "results.json")
+results_json_path = os.path.join(os.path.dirname(RESULTS_FOLDER), "results_zalando.json")
 with open(results_json_path, "w", encoding="utf-8") as f:
     json.dump(results_out, f, indent=2)
 print(f"✅ results.json written → {results_json_path}")
