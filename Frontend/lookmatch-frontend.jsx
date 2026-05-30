@@ -362,8 +362,8 @@ function ResultsPage({ results, imgUrl, onBack, onDetail, onTryOn, ...nav }) {
               )}
               <div style={S.feedBody}>
                 <div style={S.feedTop}>
-                  <span style={{ ...S.sourceBadge, background: sc.bg, color: sc.text }}>
-                    {r.source}
+                  <span style={{}}>
+
                   </span>
                   <span style={S.feedPrice}>CHF {r.price.toFixed(2)}</span>
                 </div>
