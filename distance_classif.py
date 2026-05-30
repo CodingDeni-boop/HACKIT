@@ -30,7 +30,7 @@ if not APIFY_TOKEN:
 
 INPUT_FILE = "./data/input/input.jpg"
 COMPARISON_FOLDER = "./data/compare"
-QUANTITY = 20
+QUANTITY = 200
 RESULTS_FOLDER = "./toFrontend/results"
 
 # load image from the IAM database (actually this model is meant to be used on printed text)

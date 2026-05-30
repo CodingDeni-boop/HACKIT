@@ -161,10 +161,10 @@ function TryOnModal({ item, cached, onCache, onClose }) {
 // PAGE 1 — Upload
 // ──────────────────────────────────────────────────────────────
 const IMPACT_STATS = [
-  { value: "92M",  unit: "tonnes",   label: "textile waste per year globally" },
-  { value: "82%",  unit: "less CO₂", label: "buying pre-owned vs. new fast fashion" },
+  { value: "92M",  unit: "tonnes",   label: "of textile waste per year" },
+  { value: "82%",  unit: "less CO₂", label: "buying second-hand" },
   { value: "€39B", unit: "market",   label: "European secondhand by 2035" },
-  { value: "99",   unit: "in 100",   label: "Swiss secondhand items never find a buyer" },
+  { value: "1",   unit: "in 2",   label: "Swiss secondhand items never find a buyer" },
 ];
 
 function UploadPage({ onFile, loading, imgUrl, ...nav }) {
@@ -179,7 +179,7 @@ function UploadPage({ onFile, loading, imgUrl, ...nav }) {
           <span style={S.logoText}>Wear<span style={{ fontWeight: 300, fontStyle: "italic" }}>Wise</span></span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <span style={S.tagline}>pre-owned · premium · planet-first</span>
+          
           <NavActions {...nav} />
         </div>
       </header>
@@ -194,7 +194,7 @@ function UploadPage({ onFile, loading, imgUrl, ...nav }) {
           <p style={S.heroSub}>
             Drop a photo of any clothing item. WearWise finds pre-owned equivalents
             across Vinted, Depop and eBay — showing you exactly how much you save
-            vs. buying new and how much CO₂ you spare.
+            vs buying new and how much CO₂ you spare.
           </p>
         </div>
 
@@ -215,16 +215,16 @@ function UploadPage({ onFile, loading, imgUrl, ...nav }) {
           <div style={S.loadingZone}>
             {imgUrl && <img src={imgUrl} alt="upload" style={S.loadingImg} />}
             <div style={S.scanOverlay}><div style={S.scanLine} /></div>
-            <div style={S.loadingText}><span style={S.spinner} />Scanning marketplaces · finding matches…</div>
+            <div style={S.loadingText}><span style={S.spinner} />Scanning marketplaces</div>
           </div>
         )}
 
         <div style={S.howRow}>
           <div style={S.howStep}><span style={S.howNum}>1</span><span>Upload photo</span></div>
           <div style={S.howArrow}>→</div>
-          <div style={S.howStep}><span style={S.howNum}>2</span><span>AI analyzes item</span></div>
+          <div style={S.howStep}><span style={S.howNum}>2</span><span>find best matchings and prices</span></div>
           <div style={S.howArrow}>→</div>
-          <div style={S.howStep}><span style={S.howNum}>3</span><span>Compare price &amp; CO₂ impact</span></div>
+          <div style={S.howStep}><span style={S.howNum}>3</span><span>see how it looks on an AI persona</span></div>
         </div>
 
         <div style={S.statsStrip}>
@@ -249,10 +249,9 @@ function UploadPage({ onFile, loading, imgUrl, ...nav }) {
 // PAGE 2 — Results
 // ──────────────────────────────────────────────────────────────
 const SORT_OPTIONS = [
-  { key: "price-asc",  label: "Price ↑" },
-  { key: "price-desc", label: "Price ↓" },
+  { key: "price-asc",  label: "Price ↓" },
+  { key: "price-desc", label: "Price ↑" },
   { key: "sim",        label: "Best Match" },
-  { key: "secondhand", label: "Second Hand" },
 ];
 
 function CartButton({ count, onClick }) {
@@ -289,13 +288,13 @@ function ImpactPanel({ items }) {
 
   return (
     <div style={S.impactPanel}>
-      <span style={S.impactLeaf}>🌱</span>
+      
       <span style={S.impactHeadline}>Each pre-owned item saves</span>
       <div style={S.impactChip}>
         <span style={S.impactChipCo2}>~{ref.co2_saved_kg.toFixed(1)} kg CO₂</span>
         {ref.water_saved_l > 0 && <span style={S.impactChipWater}>~{waterLabel} water</span>}
       </div>
-      <span style={S.impactHeadline}>vs. buying new</span>
+      <span style={S.impactHeadline}>vs buying new</span>
     </div>
   );
 }
@@ -366,7 +365,7 @@ function ResultsPage({ results, imgUrl, onBack, onDetail, onTryOn, ...nav }) {
                   <span style={{ ...S.sourceBadge, background: sc.bg, color: sc.text }}>
                     {r.source}
                   </span>
-                  <span style={S.feedPrice}>{r.currency} {r.price.toFixed(2)}</span>
+                  <span style={S.feedPrice}>CHF {r.price.toFixed(2)}</span>
                 </div>
                 <h3 style={S.feedTitle}>{r.title}</h3>
                 <p style={S.feedDesc}>{r.desc}</p>
@@ -383,8 +382,8 @@ function ResultsPage({ results, imgUrl, onBack, onDetail, onTryOn, ...nav }) {
       </main>
 
       <footer style={S.footer}>
-        WearWise · Fighting fast fashion one swap at a time · SDG 12 · SDG 13 · SDG 8 &amp; 10
-      </footer>
+        WearWise
+      </footer> 
     </>
   );
 }
@@ -399,12 +398,11 @@ function ItemDetailPage({ item, onBack, onAddToCart, onBuyNow, onTryOn, inCart, 
 
   const rows = [
     { label: "Size",        value: item.size || "—",   desc: "as listed by the seller" },
-    { label: "Price",       value: `${item.currency} ${item.price?.toFixed(2)}`, desc: "converted to your local currency" },
+    { label: "Price",       value: `CHF ${item.price?.toFixed(2)}`  },
     { label: "Match score", value: `${Math.round((item.sim ?? 0.7) * 100)}%`,   desc: "visual similarity to your photo" },
     { label: "Condition",   value: secondHand ? "Pre-owned / Second-hand" : "New", desc: secondHand ? "gently used, verified listing" : "brand new item" },
     item.brand && { label: "Brand",   value: item.brand, desc: "original manufacturer" },
     item.color && { label: "Color",   value: item.color, desc: "dominant color detected" },
-    item.url   && { label: "URL",     value: item.url, isLink: true, desc: "direct link to the listing" },
   ].filter(Boolean);
 
   return (
@@ -438,7 +436,7 @@ function ItemDetailPage({ item, onBack, onAddToCart, onBuyNow, onTryOn, inCart, 
 
             {secondHand && item.co2_saved_kg && (
               <div style={{ ...S.co2Tag, fontSize: 13, padding: "8px 14px", marginBottom: 8 }}>
-                🌱 ~{item.co2_saved_kg.toFixed(1)} kg CO₂ saved vs. buying new
+                ~{item.co2_saved_kg.toFixed(1)} kg CO₂ saved vs buying new
                 {item.water_saved_l ? ` · ~${item.water_saved_l.toLocaleString()} L water` : ""}
                 {item.co2_equivalents?.km_not_driven ? ` · = ${item.co2_equivalents.km_not_driven} km not driven` : ""}
               </div>
@@ -478,7 +476,7 @@ function ItemDetailPage({ item, onBack, onAddToCart, onBuyNow, onTryOn, inCart, 
       </main>
 
       <footer style={S.footer}>
-        WearWise · Fighting fast fashion one swap at a time · SDG 12 · SDG 13 · SDG 8 &amp; 10
+        WearWise
       </footer>
     </>
   );
@@ -497,7 +495,7 @@ function CheckoutPage({ items, onBack, onPaid, onRemove }) {
   const subtotal = items.reduce((s, it) => s + (it.price || 0), 0);
   const shipping = items.length ? 4.9 : 0;
   const total = subtotal + shipping;
-  const currency = items[0]?.currency || "CHF";
+  const currency = 'CHF';
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -552,14 +550,14 @@ function CheckoutPage({ items, onBack, onPaid, onRemove }) {
             <h1 style={S.detailTitle}>Order confirmed</h1>
             <p style={S.detailDesc}>
               Thanks{form.name ? `, ${form.name.split(" ")[0]}` : ""}! A receipt is on its
-              way to {form.email || "your email"}. You just chose pre-owned over new. 🌱
+              way to {form.email || "your email"}. You just chose pre-owned over new.
             </p>
-            <div style={S.successTotal}>{currency} {total.toFixed(2)} paid</div>
+            <div style={S.successTotal}>CHF {total.toFixed(2)} paid</div>
             <button style={S.detailCta} onClick={onBack}>← Back to results</button>
           </div>
         </main>
         <footer style={S.footer}>
-          WearWise · Fighting fast fashion one swap at a time · SDG 12 · SDG 13 · SDG 8 &amp; 10
+          WearWise
         </footer>
       </>
     );
@@ -589,17 +587,17 @@ function CheckoutPage({ items, onBack, onPaid, onRemove }) {
                 <div style={S.summaryTitle}>{it.title}</div>
                 <div style={S.summarySub}>{it.source} · {isSecondHand(it) ? "Pre-owned" : "New"}</div>
               </div>
-              <div style={S.summaryPrice}>{it.currency} {(it.price || 0).toFixed(2)}</div>
+              <div style={S.summaryPrice}>CHF {(it.price || 0).toFixed(2)}</div>
               {onRemove && items.length > 1 && (
                 <button style={S.summaryRemove} onClick={() => onRemove(it.id)} title="Remove">✕</button>
               )}
             </div>
           ))}
           <div style={S.summaryDivider} />
-          <div style={S.summaryLine}><span>Subtotal</span><span>{currency} {subtotal.toFixed(2)}</span></div>
-          <div style={S.summaryLine}><span>Shipping</span><span>{currency} {shipping.toFixed(2)}</span></div>
+          <div style={S.summaryLine}><span>Subtotal</span><span>CHF {subtotal.toFixed(2)}</span></div>
+          <div style={S.summaryLine}><span>Shipping</span><span>CHF {shipping.toFixed(2)}</span></div>
           <div style={{ ...S.summaryLine, ...S.summaryTotalLine }}>
-            <span>Total</span><span>{currency} {total.toFixed(2)}</span>
+            <span>Total</span><span>CHF {total.toFixed(2)}</span>
           </div>
         </section>
 
@@ -641,12 +639,12 @@ function CheckoutPage({ items, onBack, onPaid, onRemove }) {
               ? <><span style={S.spinner} /> Processing…</>
               : `Pay ${currency} ${total.toFixed(2)}`}
           </button>
-          <p style={S.payNote}>🔒 This is a demo checkout — no real payment is processed.</p>
+          
         </form>
       </main>
 
       <footer style={S.footer}>
-        WearWise · Fighting fast fashion one swap at a time · SDG 12 · SDG 13 · SDG 8 &amp; 10
+        WearWise
       </footer>
     </>
   );
@@ -707,7 +705,7 @@ function HistoryPage({ history, onBack, onOpen, ...nav }) {
       </main>
 
       <footer style={S.footer}>
-        WearWise · Fighting fast fashion one swap at a time · SDG 12 · SDG 13 · SDG 8 &amp; 10
+        WearWise
       </footer>
     </>
   );
@@ -734,15 +732,15 @@ const BG_MID    = "#163425";
 const BG_CARD   = "#1a3d2b";
 const BORDER    = "#2a5a3e";
 const TEXT_PRI  = "#f0f4f1";
-const TEXT_SEC  = "#a8d4bc";
+const TEXT_SEC  = "#6aab8e";
 const TEXT_MUT  = "#6aab8e";
 const ACCENT    = "#4ecba0";
-const ACCENT_DK = "#0f2a20";
+const ACCENT_DK = "#2a0f0f";
 
 const S = {
   root: {
     minHeight: "100vh",
-    background: `radial-gradient(130% 100% at 50% 0%, ${BG_MID} 0%, ${BG_DEEP} 65%)`,
+    background: "#e8f0e8",
     color: TEXT_PRI,
     fontFamily: FONT,
     display: "flex",
@@ -758,7 +756,7 @@ const S = {
 
   uploadMain: { flex: 1, maxWidth: 720, width: "100%", margin: "0 auto", padding: "60px 32px", display: "flex", flexDirection: "column", alignItems: "center", gap: 40 },
   uploadHero: { textAlign: "center" },
-  heroTitle:  { fontSize: 52, fontWeight: 700, lineHeight: 1.1, margin: 0, letterSpacing: -0.5, fontFamily: SERIF, color: TEXT_PRI },
+  heroTitle:  { fontSize: 52, fontWeight: 700, lineHeight: 1.1, margin: 0, letterSpacing: -0.5, fontFamily: SERIF, color: "#0f2a20" },
   heroAccent: { color: ACCENT, fontStyle: "italic" },
   heroSub:    { fontSize: 16, color: TEXT_SEC, maxWidth: 520, margin: "20px auto 0", lineHeight: 1.7 },
 
@@ -775,7 +773,7 @@ const S = {
   loadingText: { padding: 20, fontFamily: MONO, fontSize: 13, color: ACCENT, display: "flex", alignItems: "center", gap: 12, background: BG_DEEP },
   spinner:     { width: 14, height: 14, border: `2px solid ${BORDER}`, borderTopColor: ACCENT, borderRadius: "50%", animation: "spin .7s linear infinite", display: "inline-block" },
 
-  howRow:  { display: "flex", alignItems: "center", gap: 16, fontFamily: MONO, fontSize: 12, color: TEXT_MUT, flexWrap: "wrap", justifyContent: "center" },
+  howRow:  { display: "flex", alignItems: "center", gap: 16, fontFamily: MONO, fontSize: 12, color: TEXT_MUT, flexWrap: "nowrap", justifyContent: "center", whiteSpace: "nowrap" },
   howStep: { display: "flex", alignItems: "center", gap: 8 },
   howNum:  { width: 22, height: 22, borderRadius: "50%", background: BG_CARD, color: ACCENT, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, border: `1px solid ${BORDER}` },
   howArrow:{ color: "#3a8a62" },
