@@ -27,9 +27,9 @@ if not APIFY_TOKEN:
         print("  2. Create apify_token.txt with your token")
         exit(1)
 
-INPUT_FILE = "./data/input/jeans.webp"
+INPUT_FILE = "./data/input/input.jpg"
 COMPARISON_FOLDER = "./data/compare"
-QUANTITY = 100
+QUANTITY = 10
 RESULTS_FOLDER = "./toFrontend/results"
 
 # load image from the IAM database (actually this model is meant to be used on printed text)
