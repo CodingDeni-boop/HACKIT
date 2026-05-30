@@ -26,7 +26,7 @@ if not APIFY_TOKEN:
 INPUT_FILE = "./data/input/input.jpg"
 COMPARISON_FOLDER = "./data/compare"
 QUERY = "black jeans"
-QUANTITY = 500
+QUANTITY = 10
 RESULTS_FOLDER = "./toFrontend/results"
 
 # Create folders if they don't exist
@@ -62,7 +62,7 @@ try:
     from marketplace_scraper import scrape_all, fetch_thumb, parse_generic
 
     # Search for QUERY on Vinted - fetch QUANTITY images
-    listings = scrape_all(QUERY, per_site=200, sites=["Vinted", "Ebay"])
+    listings = scrape_all(QUERY, per_site=QUANTITY, sites=["Vinted"])
     
     # Download images to comparison folder
     for idx, listing in enumerate(listings):
@@ -143,7 +143,7 @@ for i, abs_index in enumerate(top_indices):
     basename = os.path.basename(compare_path_list[abs_index])
     listing = None
     try:
-        idx = int(basename.split("_")[1])
+        idx = int(basename.split("_")[1].split(".")[0])
         listing = listings[idx] if idx < len(listings) else None
     except (IndexError, ValueError):
         pass
