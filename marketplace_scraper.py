@@ -144,7 +144,7 @@ ACTORS = {
 }
 
 # Which sites to actually run. Start with Vinted only; add more once each works.
-DEFAULT_SITES = ["Vinted"]
+DEFAULT_SITES = ["Vinted", "Ebay"]
 
 
 def scrape_site(client, site, query, per_site):

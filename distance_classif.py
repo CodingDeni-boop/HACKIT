@@ -62,7 +62,7 @@ try:
     from marketplace_scraper import scrape_all, fetch_thumb, parse_generic
 
     # Search for QUERY on Vinted - fetch QUANTITY images
-    listings = scrape_all(QUERY, per_site=200, sites=["Vinted"])
+    listings = scrape_all(QUERY, per_site=200, sites=["Vinted", "Ebay"])
     
     # Download images to comparison folder
     for idx, listing in enumerate(listings):
